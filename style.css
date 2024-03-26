@@ -1,0 +1,128 @@
+/* Name: Elena
+   Last Name: Chekredji
+   Student Number: 501133464 */
+
+/* Basic body styling for consistent font and background across the app */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+/* Style for the main heading */
+h1 {
+    color: #333;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Container for the game, allows responsive wrapping */
+#game-container {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Styling for individual game boards */
+#user-board, #pc-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Canvas styling, ensures it's responsive */
+canvas {
+    border: 1px solid #000;
+    background-color: #fff;
+    max-width: 90vw;
+    height: auto;
+}
+
+/* Style for displaying messages (alerts, errors, etc.) */
+#message-display {
+    color: red;
+    position: fixed;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff3f3;
+    border: 1px solid red;
+    padding: 10px;
+    border-radius: 5px;
+    display: none;
+    z-index: 1000;
+}
+
+/* Styling for user and PC stats display */
+#user-stats, #pc-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 10px;
+}
+
+/* Paragraph styling, consistent margin and font size */
+p {
+    margin: 5px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+/* General button styling */
+button {
+    background-color: #ffdbdb;
+    color: black;
+    border: none;
+    padding: 10px 20px;
+    margin: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+/* Button hover effect for better user interaction */
+button:hover {
+    background-color: #ffb1ca;
+    color: #333;
+}
+
+/* Disabled button styling for better UX */
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    color: white;
+}
+
+/* Container for hit and miss counters */
+#hit-miss-counters {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Styling for individual hit/miss counters */
+.hit-miss-counter {
+    background-color: #ffdbdb;
+    border: 1px solid #ffd2d2;
+    border-radius: 5px;
+    padding: 10px 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    min-width: 100px;
+}
+
+/* Styling adjustments for the text within counters */
+.hit-miss-counter p {
+    margin: 5px 0;
+    color: #333;
+    font-weight: bold;
+}
+
