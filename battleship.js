@@ -3,7 +3,9 @@
  * Last Name: Chekredji
  * Student Number: 501133464
  */
+
 document.addEventListener('DOMContentLoaded', function() {
+    const ws = new WebSocket('ws://localhost:3000');
     const canvas1 = document.getElementById('battleshipCanvasUser');
     const ctx1 = canvas1.getContext('2d');
     const canvas2 = document.getElementById('battleshipCanvasPC');
@@ -20,9 +22,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let isGameRunning = false; // Whether the game is currently being played
     let countUserHits = 0;
     let countUserMisses = 0;
-    let countPCHits = 0;
-    let countPCMisses = 0;
+    let countPlayer2Hits = 0;
+    let countPlayer2Misses = 0;
     let isPlayerTurn = true;
+    let isPlayer1Turn = true;
+    let isPlayer2Turn = false;
+
     let gameJustEnded = false;
 
     // Drag and Drop variables
@@ -32,20 +37,67 @@ document.addEventListener('DOMContentLoaded', function() {
     // Arrays representing the user's and PC's grid + ship locations
     const arraySize = 10; // Define the size of the array
     let userGrid = Array.from({ length: arraySize }, () => Array(arraySize).fill(0));
-    let pcGrid = Array.from({ length: arraySize }, () => Array(arraySize).fill(0));
-    let hitsToPC = Array.from({ length: arraySize }, () => Array(arraySize).fill(0));
+    let Player2Grid = Array.from({ length: arraySize }, () => Array(arraySize).fill(0));
+    let hitsToPlayer2 = Array.from({ length: arraySize }, () => Array(arraySize).fill(0));
     let hitsToUser = Array.from({ length: arraySize }, () => Array(arraySize).fill(0));
 
     const startGameButton = document.getElementById('startGame');
     const resetGameButton = document.getElementById('resetGame');
+    let receivedPlayer2Ships = [];
+    let receivedX;
+    let receivedY;
+
+    ws.addEventListener('message', function(event) {
+        console.log('Received message:', event.data);
+        let data;
+    
+        // Attempt to parse the incoming message
+        try {
+            data = JSON.parse(event.data);
+        } catch (error) {
+            console.error('Error parsing message:', error);
+            return; // Exit if parsing fails
+        }
+    
+        // Check if the parsed data is an array
+        if (Array.isArray(data)) {
+            console.log('Data is an array:', data);
+            // Handle the array data
+            receivedPlayer2Ships = data;
+            console.log('Received ships: inside the listerner ws', receivedPlayer2Ships);
+        } else {
+            console.log('Data is not an array:', data);
+            // Further check if the data represents a click with x and y coordinates
+            if (typeof data.x === 'number' && typeof data.y === 'number') {
+                receivedX = data.x;
+                receivedY = data.y;
+                
+                //console.log('Data represents a click on the canvas:', data);
+                // Handle the canvas click event
+            } else {
+                console.log('Data does not represent a canvas click:', data);
+                // Handle other types of non-array data
+            }
+        }
+    });
+
 
     /**
      * Adds an event listener to the 'Start Game' button.
      * When clicked, it sets the game state to running and initiates the start of the game.
      */
+
     startGameButton.addEventListener('click', function() {
-        isGameRunning = true;
-        startGame();
+        //if(){
+            isGameRunning = true;
+            //ws.send("Send obj");
+            const shipsUserJson = JSON.stringify(shipsUser);
+            // Send this JSON string to the WebSocket server
+            ws.send(shipsUserJson);
+            console.log('Received ships:', receivedPlayer2Ships);
+            //ws.send(shipsUser);
+            startGame();
+        //}
     });
 
     /**
@@ -55,6 +107,9 @@ document.addEventListener('DOMContentLoaded', function() {
     resetGameButton.addEventListener('click', function() {
         isGameRunning = false;
         location.reload(true); // Reloads the current page
+        const shipsUserJson = JSON.stringify(shipsUser);
+        ws.send(shipsUserJson);
+
         startGame();
     });
 
@@ -136,6 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showMessage("Please click on the user board to move your ships.");
             }
         }
+        
     });
 
     /**
@@ -221,7 +277,9 @@ document.addEventListener('DOMContentLoaded', function() {
             drawBoardUser();
         }
     });
+    
 
+    initGame();
     /**
      * Validates if the new position for a ship is within the grid and not overlapping with other ships.
      * 
@@ -290,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
      * Draws the PC's (opponent's) board.
      * The grid is identical to the user's board but without ships shown.
      */
-    function drawBoardPC() {
+    function drawBoardPlayer2() {
         ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
         ctx2.strokeStyle = '#d3d3d3';
         ctx2.lineWidth = 1;
@@ -307,6 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
      * Validates the click location and updates the game state accordingly.
      */
     function handleCanvasClickUser(event) {
+
         // Early return if not player's turn or game not running
         if (!isPlayerTurn || !isGameRunning) return;
 
@@ -316,15 +375,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const y = event.clientY - rect.top;
         const gridX = Math.floor(x / cellSize);
         const gridY = Math.floor(y / cellSize);
+        
+        const mouseData = {
+            x: gridX,
+            y: gridY,
+        };
+        
+        ws.send(JSON.stringify(mouseData));
+
+        
 
         // Prevent action on previously targeted locations
-        if (hitsToPC[gridY][gridX] !== 0) {
+        if (hitsToPlayer2[gridY][gridX] !== 0) {
             showMessage("This location has already been targeted!");
             return;
         }
 
         // Check for ship hits
-        const shipHit = shipsPC.some(ship => {
+        const shipHit = receivedPlayer2Ships.some(ship => {
             for (let i = 0; i < ship.size; i++) {
                 const shipX = ship.isHorizontal ? ship.x + i : ship.x;
                 const shipY = ship.isHorizontal ? ship.y : ship.y + i;
@@ -337,23 +405,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update game state based on hit or miss
         if (shipHit) {
-            hitsToPC[gridY][gridX] = -1;
+            hitsToPlayer2[gridY][gridX] = -1;
             ctx2.fillStyle = 'red';
             ctx2.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
-            checkFullShipSunk(shipsPC, hitsToPC, ctx2);
+            checkFullShipSunk(receivedPlayer2Ships, hitsToPlayer2, ctx2);
             countUserHits++;
+            ws.send(JSON.stringify(mouseData));
             updateDisplay();
         } else {
-            hitsToPC[gridY][gridX] = -2;
+            hitsToPlayer2[gridY][gridX] = -2;
             ctx2.fillStyle = 'lightblue';
             ctx2.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
             countUserMisses++;
             updateDisplay();
         }
         
-        if (!checkGameState() && hitsToPC[gridY][gridX] !== -1) {
+        if (!checkGameState() && hitsToPlayer2[gridY][gridX] !== -1) {
             isPlayerTurn = false;
-            setTimeout(pcMove, 700);
+            setTimeout(Player2Move, 700);
         }
     }       
     
@@ -398,23 +467,21 @@ document.addEventListener('DOMContentLoaded', function() {
     /**
      * Simulates the PC's move by selecting a random valid target and updating the game state.
      */
-    function pcMove() {
+    function Player2Move() {
         // Prevent PC's move if the game has ended
         if (!isGameRunning) {
             return; 
         }
-    
+        ///////////////////////////////////////////////////////////////////////////////
+        //when u clikc on the pcs board it needs to
         // Simple logic for PC's turn: choose a random, valid move
-        let x, y, validMove;
-        do {
-            x = Math.floor(Math.random() * 10);
-            y = Math.floor(Math.random() * 10);
-            validMove = isValidMove(x, y);
-        } while (!validMove);
-    
-        const gridX = x;
-        const gridY = y;
-        //console.log('PC move:', gridX, gridY);
+        
+        
+        let gridX = receivedX;
+        let gridY = receivedY;
+
+        console.log('receivedX: inside player2Move', receivedX);
+        console.log('receivedY: inside player2Move', receivedY);
 
         const shipHit = shipsUser.some(ship => {
             for (let i = 0; i < ship.size; i++) {
@@ -433,13 +500,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx1.fillStyle = 'red';
                 ctx1.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
                 checkFullShipSunk(shipsUser, hitsToUser, ctx1); 
-                countPCHits++;
+                countPlayer2Hits++;
                 updateDisplay();
             } else {
                 hitsToUser[gridY][gridX] = -2;
                 ctx1.fillStyle = 'lightblue';
                 ctx1.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
-                countPCMisses++;
+                countPlayer2Misses++;
                 updateDisplay();    
             }
         }    
@@ -454,26 +521,11 @@ document.addEventListener('DOMContentLoaded', function() {
             isPlayerTurn = true;
         }
         else {
-            setTimeout(pcMove, 1000)
+            setTimeout(Player2Move, 1000)
         }
         
     }
 
-    /**
-     * Checks if a move is valid based on the player's turn and the target cell's status.
-     * For the player's turn, it checks the PC's grid; for the PC's turn, it checks the user's grid.
-     * @param {number} x - The x coordinate of the target cell.
-     * @param {number} y - The y coordinate of the target cell.
-     * @returns {boolean} True if the cell has not been targeted yet, false otherwise.
-     */
-    function isValidMove(x, y) {
-        if(isPlayerTurn){
-            return hitsToPC[y][x] === 0;
-        }
-        else {
-            return hitsToUser[y][x] === 0;
-        }
-    }
     
     /**
      * Checks if the game has reached a win/lose condition.
@@ -487,7 +539,7 @@ document.addEventListener('DOMContentLoaded', function() {
             isGameRunning = false; 
             gameJustEnded = true;
             return true; 
-        } else if (countPCHits === 14) {
+        } else if (countPlayer2Hits === 14) {
             alert("Game Over: Player 2 Wins!");
             isGameRunning = false; 
             gameJustEnded = true;
@@ -501,22 +553,15 @@ document.addEventListener('DOMContentLoaded', function() {
      * Sets the ships on the board and prepares the game for starting.
      */
     function initGame() {
+
         // Sizes of the ships
         const shipsSizes = [2, 4, 3, 3, 2]; 
-        shipsPC = shipsSizes.map(shipSize => {
-            let position = generateRandomShipPosition(gridSize, shipSize, pcGrid);
-            return {...position, size: shipSize}; 
-        });
-        //console.log(shipsPC);
         shipsUser = shipsSizes.map(shipSize => {
             let position = generateRandomShipPosition(gridSize, shipSize, userGrid);
             return {...position, size: shipSize}; 
         });
-        //console.log(shipsUser);
-        
-
         drawBoardUser();
-        drawBoardPC();
+        drawBoardPlayer2();
 
     }
 
@@ -594,8 +639,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateDisplay() {
         document.getElementById('userHits').textContent = countUserHits;
         document.getElementById('userMisses').textContent = countUserMisses;
-        document.getElementById('pcHits').textContent = countPCHits;
-        document.getElementById('pcMisses').textContent = countPCMisses;
+        document.getElementById('pcHits').textContent = countPlayer2Hits;
+        document.getElementById('pcMisses').textContent = countPlayer2Misses;
     }
 
     /**
@@ -624,6 +669,8 @@ document.addEventListener('DOMContentLoaded', function() {
             messageDisplay.style.display = 'none';
         }, 3000);
     }
+
+
 });
 
 
