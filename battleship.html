@@ -1,0 +1,37 @@
+<!-- Name: Elena
+     Last Name: Chekredji  -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Battleship Game</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <h1>Battleship Game</h1>
+
+    <div id="game-container">
+        <div id="user-board">
+            <h2>Player 1</h2>
+            <canvas id="battleshipCanvasUser" width="500" height="500"></canvas>
+            <div class="hit-miss-counter">
+                <p>Player 1 Hits: <span id="userHits">0</span></p>
+                <p>Player 1 Misses: <span id="userMisses">0</span></p>
+            </div>
+        </div>
+        
+        <div id="pc-board">
+            <h2>Player 2</h2>
+            <canvas id="battleshipCanvasPC" width="500" height="500"></canvas>
+            <div class="hit-miss-counter">
+                <p>Player 2 Hits: <span id="pcHits">0</span></p>
+                <p>Player 2 Misses: <span id="pcMisses">0</span></p>
+            </div>
+        </div>
+    </div>
+    <div id="message-display" style="display: none;"></div>
+
+    <button id="startGame">Play</button>
+    <button id="resetGame">Reset Game</button>
+    <script src="battleship.js"></script>
+</body>
+</html>
