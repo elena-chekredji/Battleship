@@ -1,66 +1,120 @@
+/**
+ * Name: Elena
+ * Last Name: Chekredji
+ * Student Number: 501133464
+ */
+
+// Import necessary modules
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 
+// Create an Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
+
+// Initialize WebSocket server on the HTTP server
 const wss = new WebSocket.Server({ server });
 
-let players = []; // Array to keep track of the first two players
-let p1, p2;
-const startingPlayer = Math.random() < 0.5 ? 'p1' : 'p2';
+/** 
+ * Array to keep track of the first two players' WebSocket connections.
+ * @type {WebSocket[]}
+ */
+let players = [];
+/** 
+ * WebSocket connection for player 1.
+ * @type {WebSocket | null}
+ */
+let p1 = null;
 
+/** 
+ * WebSocket connection for player 2.
+ * @type {WebSocket | null}
+ */
+let p2 = null;
 
+/** 
+ * Flag indicating whether two players are connected.
+ * @type {boolean}
+ */
+let twoConnections = false;
+
+/**
+ * Event listener for new WebSocket connections.
+ * Manages player connections, game initialization, and message broadcasting.
+ */
 wss.on('connection', function connection(ws) {
-    // Check if we already have two players
-    if (players.length < 2) {
-        // Add this connection as a player
+    if (wss.clients.size < 3 ) {
         players.push(ws);
-        console.log(`Player ${players.length} has connected`);
 
+        console.log('Player ' , wss.clients.size,' has connected');
 
-        if(wss.clients.size <2){
-            p1=ws;
+        if (wss.clients.size < 2) {
+            p1 = ws;
+            ws.send(JSON.stringify('Waiting for another player to connect'));
         } else {
-            p2=ws;
+            p2 = ws;
         }
-        if(wss.clients.size === 2){
-            console.log(startingPlayer);
-            if(startingPlayer === 'p1'){
-                p1.send('Your turn');
-                p2.send('Opponent\'s turn');
-            } else {
-                p2.send('Your turn');
-                p1.send('Opponent\'s turn');
-            }
-        }
+        if(wss.clients.size === 2 && !twoConnections){
+            const firstTurn = Math.random() < 0.5 ? 'p1' : 'p2';
+            console.log('Player ', firstTurn, 'will go first!');
 
+            // Inform the players whose turn it is
+            if (firstTurn === 'p1') {
+                p1.send(JSON.stringify('Your Turn'));
+                p2.send(JSON.stringify('Opponents Turn'));
+            } else {
+                p2.send(JSON.stringify('Your Turn'));
+                p1.send(JSON.stringify('Opponents Turn'));
+                
+            }
+            twoConnections = true;
+        }
+               
+        /**
+         * Listener for incoming messages from players.
+         * Broadcasts messages to the other player.
+         */
         ws.on('message', function incoming(data) {
             wss.clients.forEach(function each(client) {
                 if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    // If `data` is not a string, stringify it
-                    //let messageToSend = typeof data === 'string' ? data : JSON.stringify(data);
                     const dataToSend = JSON.parse(data);
                     client.send(JSON.stringify(dataToSend));
                 }
             });
         });
 
-        ws.onmessage = function(event) {
-            try {
-                const data = JSON.parse(event.data);
-                //console.log('Received data:', data);
-                //console.log('Received data:', data.data);
-            } catch (e) {
-                console.error('Error parsing message:', e);
-            }
-        };
-
-        // When a player disconnects, remove them from the array
+        /**
+         * Listener for WebSocket connection closure.
+         * Notifies remaining player and resets game state.
+         */
         ws.on('close', () => {
-            players = players.filter(player => player !== ws);
-            console.log('Player disconnected');
-        });
+            if(twoConnections) {
+                console.log('A player disconnected');
+                // Sends a message to the remaining player that their opponent has disconnected
+                let remainingPlayer = players.find(player => player !== ws && player.readyState === WebSocket.OPEN);
+                if(remainingPlayer) {
+                    remainingPlayer.send(JSON.stringify('The other player has disconnected.'));
+                }
+        
+                // Disconnect all players
+                players.forEach(player => {
+                    if (player.readyState === WebSocket.OPEN) {
+                        player.close(); // This will close the connection
+                    }
+                });
+    
+                // Reset the state after disconnection
+                players = [];
+                p1 = null;
+                p2 = null;
+                twoConnections = false;
+    
+                console.log('All players have been disconnected');
+                console.log('Current # of connections is :', wss.clients.size);
+
+            }
+        });        
     } else {
         // If we already have two players, ignore the connection
         console.log('New connection ignored, already have two players');
@@ -69,12 +123,18 @@ wss.on('connection', function connection(ws) {
 
 });
 
-
+// Serve static files from the 'public' directory
 app.use(express.static('public'));
 
+// Start the server
 const port = 3000;
 server.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 
 });
+
+
+
+
+
 

@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const ctx2 = canvas2.getContext('2d');
     const gridSize = 10;
     const cellSize = canvas1.width / gridSize;
-
+          
     // Initialize ships for PC and User
     let shipsPC = [];
     let shipsUser = [];
@@ -24,9 +24,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let countUserMisses = 0;
     let countPlayer2Hits = 0;
     let countPlayer2Misses = 0;
-    let isPlayerTurn = true;
-    let isPlayer1Turn = true;
-    let isPlayer2Turn = false;
+    let isPlayer1Turn = false; // Whether it is the player's turn to attack
+
 
     let gameJustEnded = false;
 
@@ -46,41 +45,97 @@ document.addEventListener('DOMContentLoaded', function() {
     let receivedPlayer2Ships = [];
     let receivedX;
     let receivedY;
+    let twoConnectionsEstablished = false;
+    let otherPlayerHasPressedStart = false;
 
+    /**
+     * Event listener for WebSocket messages.
+     * Handles various game state messages from the server and updates the client UI accordingly.
+     */
     ws.addEventListener('message', function(event) {
         console.log('Received message:', event.data);
+
         let data;
-    
-        // Attempt to parse the incoming message
+        /**
+         * Attempts to parse the incoming WebSocket message.
+         * If parsing fails, logs an error and exits the function early.
+         */
         try {
             data = JSON.parse(event.data);
         } catch (error) {
             console.error('Error parsing message:', error);
             return; // Exit if parsing fails
         }
-    
-        // Check if the parsed data is an array
-        if (Array.isArray(data)) {
-            console.log('Data is an array:', data);
-            // Handle the array data
-            receivedPlayer2Ships = data;
-            console.log('Received ships: inside the listerner ws', receivedPlayer2Ships);
-        } else {
-            console.log('Data is not an array:', data);
-            // Further check if the data represents a click with x and y coordinates
-            if (typeof data.x === 'number' && typeof data.y === 'number') {
-                receivedX = data.x;
-                receivedY = data.y;
-                
-                //console.log('Data represents a click on the canvas:', data);
-                // Handle the canvas click event
-            } else {
-                console.log('Data does not represent a canvas click:', data);
-                // Handle other types of non-array data
+
+        /**
+         * Disables the start game button and displays a message
+         * if waiting for another player to connect.
+         */
+        if (data == 'Waiting for another player to connect'){
+             startGameButton.disabled = true;
+             showMessage("Waiting for another player to connect, please wait!");
+        }
+        
+        /**
+         * Enables the start game button and indicates that two players are now connected,
+         * allowing the game to be started.
+         */        
+        if (data == 'Two people are now connected'){
+            showMessage("Two people are now connected, move ships around and click Play to start the game!");
+            twoConnectionsEstablished = true;
+            startGameButton.disabled = false;
+        }
+
+        /**
+         * Handles game data after two connections have been established.
+         * This includes processing received ship positions, handling disconnects,
+         * and processing game moves.
+         */        
+        if(twoConnectionsEstablished){
+            // Process array data, containing ship positions
+            if (Array.isArray(data)) {
+                    console.log('Data is an array:', data);
+                    // Handle the array data
+                    receivedPlayer2Ships = data;
+                    receivedShips = true;
+                    otherPlayerHasPressedStart = true;
+                    console.log('Received ships: inside the ws listener', receivedPlayer2Ships);
+                } 
+                // Handle other player's disconnection
+                else if (data == 'The other player has disconnected.'){
+                    showMessage("The other player has disconnected, please click Reset to start a new game!");
+                    twoConnectionsEstablished = false;
+                } 
+                // Process game move data
+                else {
+                    // Check if the data represents a game move with coordinates
+                    if (typeof data.x === 'number' && typeof data.y === 'number') {
+                        receivedX = data.x;
+                        receivedY = data.y;
+                        Player2Move(receivedX, receivedY);
+                    } else {
+                        console.log('Data is not of expected type', data);
+                    }
+                }
+        } 
+        // Initial game setup indicating whose turn it is
+        else {
+            if(data == 'Your Turn'){
+                isPlayer1Turn = true;
+                showMessage('Two people are now connected, move ships around and click Play to start the game!');
+                ws.send(JSON.stringify('Two people are now connected'));
+                twoConnectionsEstablished = true;
+                console.log(isPlayer1Turn);            }
+            else if(data == 'Opponents Turn'){
+                showMessage('Two people are now connected, move ships around and click Play to start the game!');
+                ws.send(JSON.stringify('Two people are now connected'));
+                twoConnectionsEstablished = true;
+                console.log(isPlayer1Turn);
             }
+
         }
     });
-
+   
 
     /**
      * Adds an event listener to the 'Start Game' button.
@@ -88,16 +143,22 @@ document.addEventListener('DOMContentLoaded', function() {
      */
 
     startGameButton.addEventListener('click', function() {
-        //if(){
-            isGameRunning = true;
-            //ws.send("Send obj");
-            const shipsUserJson = JSON.stringify(shipsUser);
-            // Send this JSON string to the WebSocket server
-            ws.send(shipsUserJson);
-            console.log('Received ships:', receivedPlayer2Ships);
-            //ws.send(shipsUser);
-            startGame();
-        //}
+        isGameRunning = true;
+        //ws.send("Send obj");
+        const shipsUserJson = JSON.stringify(shipsUser);
+        // Send this JSON string to the WebSocket server
+        ws.send(shipsUserJson);
+        console.log('Received ships:', receivedPlayer2Ships);
+        //ws.send(shipsUser);
+        if(isPlayer1Turn){
+            showMessage("You go first! Click on Player 2 board to attack!");
+        } 
+        else {
+            showMessage("Player 2 goes first! Wait for your turn!");
+        }
+        startGame();
+    
+
     });
 
     /**
@@ -105,12 +166,12 @@ document.addEventListener('DOMContentLoaded', function() {
      * When clicked, it resets the game state and reloads the current page to start anew.
      */    
     resetGameButton.addEventListener('click', function() {
-        isGameRunning = false;
-        location.reload(true); // Reloads the current page
-        const shipsUserJson = JSON.stringify(shipsUser);
-        ws.send(shipsUserJson);
-
-        startGame();
+        //if(isGameRunning){
+            isGameRunning = false;
+            location.reload(true); // Reloads the current page
+            twoConnectionsEstablished = false;
+            //startGame();
+            
     });
 
     /**
@@ -366,64 +427,72 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function handleCanvasClickUser(event) {
 
+        if (!otherPlayerHasPressedStart){
+            showMessage("Please wait for the other player to start the game!");
+        }
+        if(!isPlayer1Turn){
+            showMessage("Wait for your turn!");
+        }
+
         // Early return if not player's turn or game not running
-        if (!isPlayerTurn || !isGameRunning) return;
-
-        // Calculate click position
-        const rect = canvas2.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        const gridX = Math.floor(x / cellSize);
-        const gridY = Math.floor(y / cellSize);
-        
-        const mouseData = {
-            x: gridX,
-            y: gridY,
-        };
-        
-        ws.send(JSON.stringify(mouseData));
-
-        
-
-        // Prevent action on previously targeted locations
-        if (hitsToPlayer2[gridY][gridX] !== 0) {
-            showMessage("This location has already been targeted!");
-            return;
-        }
-
-        // Check for ship hits
-        const shipHit = receivedPlayer2Ships.some(ship => {
-            for (let i = 0; i < ship.size; i++) {
-                const shipX = ship.isHorizontal ? ship.x + i : ship.x;
-                const shipY = ship.isHorizontal ? ship.y : ship.y + i;
-                if (gridX === shipX && gridY === shipY) {
-                    return true;
-                }
-            }
-            return false;
-        });
-
-        // Update game state based on hit or miss
-        if (shipHit) {
-            hitsToPlayer2[gridY][gridX] = -1;
-            ctx2.fillStyle = 'red';
-            ctx2.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
-            checkFullShipSunk(receivedPlayer2Ships, hitsToPlayer2, ctx2);
-            countUserHits++;
+        if (!isPlayer1Turn || !isGameRunning) return;
+        if (otherPlayerHasPressedStart){
+            console.log('inside handleCanvasClickUser');
+            const rect = canvas2.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const gridX = Math.floor(x / cellSize);
+            const gridY = Math.floor(y / cellSize);
+            
+            const mouseData = {
+                x: gridX,
+                y: gridY,
+            };
+            
             ws.send(JSON.stringify(mouseData));
-            updateDisplay();
-        } else {
-            hitsToPlayer2[gridY][gridX] = -2;
-            ctx2.fillStyle = 'lightblue';
-            ctx2.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
-            countUserMisses++;
-            updateDisplay();
+
+            
+
+            // Prevent action on previously targeted locations
+            if (hitsToPlayer2[gridY][gridX] !== 0) {
+                showMessage("This location has already been targeted!");
+                return;
+            }
+
+            // Check for ship hits
+            const shipHit = receivedPlayer2Ships.some(ship => {
+                for (let i = 0; i < ship.size; i++) {
+                    const shipX = ship.isHorizontal ? ship.x + i : ship.x;
+                    const shipY = ship.isHorizontal ? ship.y : ship.y + i;
+                    if (gridX === shipX && gridY === shipY) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+            // Update game state based on hit or miss
+            if (shipHit) {
+                hitsToPlayer2[gridY][gridX] = -1;
+                ctx2.fillStyle = 'red';
+                ctx2.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
+                checkFullShipSunk(receivedPlayer2Ships, hitsToPlayer2, ctx2);
+                countUserHits++;
+                ws.send(JSON.stringify(mouseData));
+                updateDisplay();
+            } else {
+                hitsToPlayer2[gridY][gridX] = -2;
+                ctx2.fillStyle = 'lightblue';
+                ctx2.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
+                countUserMisses++;
+                updateDisplay();
+            }
+            
+            if (!checkGameState() && hitsToPlayer2[gridY][gridX] !== -1) {
+                isPlayer1Turn = false;
+            }
         }
-        
-        if (!checkGameState() && hitsToPlayer2[gridY][gridX] !== -1) {
-            isPlayerTurn = false;
-            setTimeout(Player2Move, 700);
-        }
+
     }       
     
     /**
@@ -467,63 +536,67 @@ document.addEventListener('DOMContentLoaded', function() {
     /**
      * Simulates the PC's move by selecting a random valid target and updating the game state.
      */
-    function Player2Move() {
+    function Player2Move(x, y) {
         // Prevent PC's move if the game has ended
-        if (!isGameRunning) {
-            return; 
+        if (!otherPlayerHasPressedStart){
+            showMessage("Please wait for the other player to start the game!");
         }
-        ///////////////////////////////////////////////////////////////////////////////
-        //when u clikc on the pcs board it needs to
-        // Simple logic for PC's turn: choose a random, valid move
-        
-        
-        let gridX = receivedX;
-        let gridY = receivedY;
 
-        console.log('receivedX: inside player2Move', receivedX);
-        console.log('receivedY: inside player2Move', receivedY);
+        if(isPlayer1Turn){
+            showMessage("Wait for your turn!");
+        }
+        
+        if(twoConnectionsEstablished && otherPlayerHasPressedStart){
+            if (!isGameRunning && !isPlayer1Turn) {
+                return; 
+            }
+            
+            console.log('inside player2Move');
+            let gridX = x;
+            let gridY = y;
 
-        const shipHit = shipsUser.some(ship => {
-            for (let i = 0; i < ship.size; i++) {
-                const shipX = ship.isHorizontal ? ship.x + i : ship.x;
-                const shipY = ship.isHorizontal ? ship.y : ship.y + i;
-                if (gridX === shipX && gridY === shipY) {
-                    return true;
+            console.log('receivedX: inside player2Move', receivedX);
+            console.log('receivedY: inside player2Move', receivedY);
+
+            const shipHit = shipsUser.some(ship => {
+                for (let i = 0; i < ship.size; i++) {
+                    const shipX = ship.isHorizontal ? ship.x + i : ship.x;
+                    const shipY = ship.isHorizontal ? ship.y : ship.y + i;
+                    if (gridX === shipX && gridY === shipY) {
+                        return true;
+                    }
                 }
-            }
-            return false;
-        });
+                return false;
+            });
 
-        if (hitsToUser[gridY][gridX] === 0) {
-            if (shipHit) {
-                hitsToUser[gridY][gridX] = -1; 
-                ctx1.fillStyle = 'red';
-                ctx1.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
-                checkFullShipSunk(shipsUser, hitsToUser, ctx1); 
-                countPlayer2Hits++;
-                updateDisplay();
-            } else {
-                hitsToUser[gridY][gridX] = -2;
-                ctx1.fillStyle = 'lightblue';
-                ctx1.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
-                countPlayer2Misses++;
-                updateDisplay();    
+            if (hitsToUser[gridY][gridX] === 0) {
+                if (shipHit) {
+                    hitsToUser[gridY][gridX] = -1; 
+                    ctx1.fillStyle = 'red';
+                    ctx1.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
+                    checkFullShipSunk(shipsUser, hitsToUser, ctx1); 
+                    countPlayer2Hits++;
+                    updateDisplay();
+                } else {
+                    hitsToUser[gridY][gridX] = -2;
+                    ctx1.fillStyle = 'lightblue';
+                    ctx1.fillRect(gridX * cellSize, gridY * cellSize, cellSize, cellSize);
+                    countPlayer2Misses++;
+                    updateDisplay();    
+                }
+            }    
+            // Check for end of game or switch turns
+            if (checkGameState()) {
+                endGame();
+                return;
             }
-        }    
-        // Check for end of game or switch turns
-        if (checkGameState()) {
-            endGame();
-            return;
-        }
-    
-        // Switch back to the player's turn
-        if(hitsToUser[gridY][gridX] !== -1) {
-            isPlayerTurn = true;
-        }
-        else {
-            setTimeout(Player2Move, 1000)
-        }
         
+            // Switch back to the player's turn
+            if(hitsToUser[gridY][gridX] !== -1) {
+                isPlayer1Turn = true;
+            }
+
+        }
     }
 
     
@@ -535,12 +608,12 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function checkGameState() {
         if (countUserHits === 14) {
-            alert("Game Over: Player 1 Wins!");
+            alert("Game Over: You have won!");
             isGameRunning = false; 
             gameJustEnded = true;
             return true; 
         } else if (countPlayer2Hits === 14) {
-            alert("Game Over: Player 2 Wins!");
+            alert("Game Over: You have lost!");
             isGameRunning = false; 
             gameJustEnded = true;
             return true; 
@@ -573,7 +646,6 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function startGame() {
         isGameRunning = true;
-        isPlayerTurn = true;
         startGameButton.disabled = true; 
         canvas2.addEventListener('click', handleCanvasClickUser);
     }
@@ -667,7 +739,7 @@ document.addEventListener('DOMContentLoaded', function() {
         messageDisplay.style.display = 'block';
         setTimeout(() => {
             messageDisplay.style.display = 'none';
-        }, 3000);
+        }, 6000);
     }
 
 
