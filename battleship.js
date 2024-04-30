@@ -1,7 +1,6 @@
 /**
  * Name: Elena
  * Last Name: Chekredji
- * Student Number: 501133464
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -744,5 +743,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 });
+
 
 
