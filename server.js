@@ -1,7 +1,6 @@
 /**
  * Name: Elena
  * Last Name: Chekredji
- * Student Number: 501133464
  */
 
 // Import necessary modules
